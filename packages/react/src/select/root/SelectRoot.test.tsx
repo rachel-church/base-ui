@@ -3903,6 +3903,269 @@ describe('<Select.Root />', () => {
     });
   });
 
+  describe('keyboard navigation: PageUp/PageDown', () => {
+    function makeItems(count: number) {
+      return Array.from({ length: count }, (_, i) => `item-${i + 1}`);
+    }
+
+    function renderSelect(items: string[]) {
+      return render(
+        <Select.Root defaultOpen>
+          <Select.Trigger data-testid="trigger">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner>
+              <Select.Popup>
+                {items.map((item) => (
+                  <Select.Item key={item} value={item}>
+                    {item}
+                  </Select.Item>
+                ))}
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>,
+      );
+    }
+
+    it('PageDown moves the highlight 10 items forward', async () => {
+      const items = makeItems(20);
+      const { user } = await renderSelect(items);
+
+      // Focus first option via ArrowDown
+      await user.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-1' })).toHaveFocus();
+      });
+
+      await user.keyboard('{PageDown}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-11' })).toHaveFocus();
+      });
+    });
+
+    it('PageUp moves the highlight 10 items backward', async () => {
+      const items = makeItems(20);
+      const { user } = await renderSelect(items);
+
+      // Navigate down to item-15 via ArrowDown repeatedly
+      for (let i = 0; i < 15; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await user.keyboard('{ArrowDown}');
+      }
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-15' })).toHaveFocus();
+      });
+
+      await user.keyboard('{PageUp}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-5' })).toHaveFocus();
+      });
+    });
+
+    it('PageDown stops at the last item', async () => {
+      const items = makeItems(8);
+      const { user } = await renderSelect(items);
+
+      await user.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-1' })).toHaveFocus();
+      });
+
+      await user.keyboard('{PageDown}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-8' })).toHaveFocus();
+      });
+    });
+
+    it('PageUp stops at the first item', async () => {
+      const items = makeItems(8);
+      const { user } = await renderSelect(items);
+
+      await user.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-1' })).toHaveFocus();
+      });
+
+      await user.keyboard('{PageUp}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'item-1' })).toHaveFocus();
+      });
+    });
+
+    it('PageDown does not change the selected value', async () => {
+      const handleValueChange = vi.fn();
+      const items = makeItems(20);
+      const { user } = await render(
+        <Select.Root defaultOpen defaultValue="item-1" onValueChange={handleValueChange}>
+          <Select.Trigger data-testid="trigger">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner>
+              <Select.Popup>
+                {items.map((item) => (
+                  <Select.Item key={item} value={item}>
+                    {item}
+                  </Select.Item>
+                ))}
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>,
+      );
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{PageDown}');
+
+      // No value change should have been fired
+      expect(handleValueChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('form reset', () => {
+    const { render: renderFakeTimers, clock } = createRenderer({
+      clockOptions: {
+        shouldAdvanceTime: true,
+      },
+    });
+
+    clock.withFakeTimers();
+
+    it('resets to defaultValue when the form is reset (uncontrolled)', async () => {
+      ignoreActWarnings();
+
+      const { user } = await renderFakeTimers(
+        <form data-testid="form">
+          <Select.Root name="select" defaultValue="a">
+            <Select.Trigger data-testid="trigger">
+              <Select.Value data-testid="value" />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup>
+                  <Select.Item value="a">a</Select.Item>
+                  <Select.Item value="b">b</Select.Item>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+          <button type="reset">Reset</button>
+        </form>,
+      );
+
+      const trigger = screen.getByTestId('trigger');
+      const valueEl = screen.getByTestId('value');
+
+      // Change value to b
+      await user.click(trigger);
+      await flushMicrotasks();
+      await clock.tickAsync(400);
+
+      const optionB = screen.getByRole('option', { name: 'b' });
+      await user.click(optionB);
+      await flushMicrotasks();
+
+      expect(valueEl.textContent).toBe('b');
+
+      // Reset the form
+      await user.click(screen.getByRole('button', { name: 'Reset' }));
+      await flushMicrotasks();
+
+      expect(valueEl.textContent).toBe('a');
+    });
+
+    it('resets to null defaultValue when the form is reset (uncontrolled, no initial value)', async () => {
+      ignoreActWarnings();
+
+      const { user } = await renderFakeTimers(
+        <form data-testid="form">
+          <Select.Root
+            name="select"
+            items={[
+              { value: 'a', label: 'a' },
+              { value: 'b', label: 'b' },
+            ]}
+          >
+            <Select.Trigger data-testid="trigger">
+              <Select.Value data-testid="value" placeholder="(none)" />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup>
+                  <Select.Item value="a">a</Select.Item>
+                  <Select.Item value="b">b</Select.Item>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+          <button type="reset">Reset</button>
+        </form>,
+      );
+
+      const trigger = screen.getByTestId('trigger');
+      const valueEl = screen.getByTestId('value');
+
+      // Change value to b
+      await user.click(trigger);
+      await flushMicrotasks();
+      await clock.tickAsync(400);
+
+      const optionB = screen.getByRole('option', { name: 'b' });
+      await user.click(optionB);
+      await flushMicrotasks();
+
+      expect(valueEl.textContent).toBe('b');
+
+      // Reset the form
+      await user.click(screen.getByRole('button', { name: 'Reset' }));
+      await flushMicrotasks();
+
+      expect(valueEl.textContent).toBe('(none)');
+    });
+
+    it('calls onValueChange with defaultValue when form is reset (controlled)', async () => {
+      ignoreActWarnings();
+
+      const handleValueChange = vi.fn();
+
+      const { user } = await renderFakeTimers(
+        <form>
+          <Select.Root name="select" defaultValue="a" onValueChange={handleValueChange} value="b">
+            <Select.Trigger data-testid="trigger">
+              <Select.Value data-testid="value" />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup>
+                  <Select.Item value="a">a</Select.Item>
+                  <Select.Item value="b">b</Select.Item>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+          <button type="reset">Reset</button>
+        </form>,
+      );
+
+      // Reset the form
+      await user.click(screen.getByRole('button', { name: 'Reset' }));
+      await flushMicrotasks();
+
+      // onValueChange should be called with the defaultValue
+      expect(handleValueChange).toHaveBeenCalledWith('a', expect.anything());
+    });
+  });
+
   describe('prop: highlightItemOnHover', () => {
     it('highlights an item on mouse move by default', async () => {
       const { user } = await render(

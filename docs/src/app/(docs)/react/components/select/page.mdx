@@ -16,6 +16,27 @@ import { DemoSelectHero } from './demos/hero';
 - **Special positioning behavior**: The select popup by default overlaps its trigger so the selected item's text is aligned with the trigger's value text. This behavior [can be disabled or customized](/react/components/select#positioning).
 - **Form controls must have an accessible name**: Prefer `<Select.Label>`, or provide an `aria-label` on `<Select.Trigger>` when no visible label is rendered. See [Labeling a select](#labeling-a-select) and the [forms guide](/react/handbook/forms).
 
+## Keyboard interactions
+
+### Trigger (closed)
+
+| Key                                         | Action                                                                      |
+| :------------------------------------------ | :-------------------------------------------------------------------------- |
+| `Enter` / `Space` / `ArrowDown` / `ArrowUp` | Opens the popup                                                             |
+| Printable character(s)                      | Selects the first item whose label starts with the typed string (typeahead) |
+
+### Popup (open)
+
+| Key                     | Action                                                                   |
+| :---------------------- | :----------------------------------------------------------------------- |
+| `ArrowDown` / `ArrowUp` | Moves highlight to next / previous item                                  |
+| `Home` / `End`          | Moves highlight to first / last item                                     |
+| `PageDown` / `PageUp`   | Moves highlight 10 items forward / backward, stopping at list boundaries |
+| `Enter` / `Space`       | Selects the highlighted item and closes the popup                        |
+| `Escape`                | Closes the popup without changing the selection                          |
+| `Tab`                   | Closes the popup and moves focus to the next focusable element           |
+| Printable character(s)  | Moves highlight to the next item matching the typed string (typeahead)   |
+
 ## Anatomy
 
 Import the component and assemble its parts:

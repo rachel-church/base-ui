@@ -485,6 +485,37 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   const ref = useMergedRefs(inputRef, validation.inputRef);
 
+  const hiddenInputRef = React.useRef<HTMLInputElement | null>(null);
+  const mergedHiddenInputRef = useMergedRefs(ref, hiddenInputRef);
+
+  // Capture the default value once at mount time for form reset support.
+  const defaultValueForResetRef = React.useRef<any>(
+    multiple ? (defaultValue ?? EMPTY_ARRAY) : defaultValue,
+  );
+
+  React.useEffect(() => {
+    const input = hiddenInputRef.current;
+    if (!input) {
+      return undefined;
+    }
+
+    // `input.form` resolves both ancestor forms and forms pointed to by the `form` attribute.
+    const formEl = input.form;
+    if (!formEl) {
+      return undefined;
+    }
+
+    function handleReset() {
+      setValue(defaultValueForResetRef.current, createChangeEventDetails(REASONS.none));
+    }
+
+    formEl.addEventListener('reset', handleReset);
+    return () => {
+      formEl.removeEventListener('reset', handleReset);
+    };
+    // `form` prop in deps ensures the listener is re-attached when the form association changes.
+  }, [form, setValue]);
+
   const hasMultipleSelection = multiple && Array.isArray(value) && value.length > 0;
   const hiddenInputName = multiple ? undefined : name;
 
@@ -574,7 +605,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
           disabled={disabled}
           required={required && !hasMultipleSelection}
           readOnly={readOnly}
-          ref={ref}
+          ref={mergedHiddenInputRef}
           style={name ? visuallyHiddenInput : visuallyHidden}
           tabIndex={-1}
           aria-hidden
