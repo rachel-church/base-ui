@@ -4166,6 +4166,120 @@ describe('<Select.Root />', () => {
     });
   });
 
+  describe('form event bubbling', () => {
+    function SelectFixture({ multiple }: { multiple?: boolean }) {
+      return (
+        <Select.Root name="select" multiple={multiple as any}>
+          <Select.Trigger data-testid="trigger">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner>
+              <Select.Popup>
+                <Select.Item value="a">a</Select.Item>
+                <Select.Item value="b">b</Select.Item>
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>
+      );
+    }
+
+    it('fires the form onChange handler when an item is selected (single)', async () => {
+      const handleChange = vi.fn();
+      const { user } = await render(
+        <form onChange={handleChange}>
+          <SelectFixture />
+        </form>,
+      );
+
+      await user.click(screen.getByTestId('trigger'));
+      await flushMicrotasks();
+
+      await user.click(screen.getByRole('option', { name: 'b' }));
+      await flushMicrotasks();
+
+      expect(handleChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires the form onInput handler when an item is selected (single)', async () => {
+      const handleInput = vi.fn();
+      const { user } = await render(
+        <form onInput={handleInput}>
+          <SelectFixture />
+        </form>,
+      );
+
+      await user.click(screen.getByTestId('trigger'));
+      await flushMicrotasks();
+
+      await user.click(screen.getByRole('option', { name: 'b' }));
+      await flushMicrotasks();
+
+      expect(handleInput).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires the form onChange handler when an item is selected (multiple)', async () => {
+      const handleChange = vi.fn();
+      const { user } = await render(
+        <form onChange={handleChange}>
+          <SelectFixture multiple />
+        </form>,
+      );
+
+      await user.click(screen.getByTestId('trigger'));
+      await flushMicrotasks();
+
+      await user.click(screen.getByRole('option', { name: 'a' }));
+      await flushMicrotasks();
+
+      expect(handleChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires the form onInput handler when an item is selected (multiple)', async () => {
+      const handleInput = vi.fn();
+      const { user } = await render(
+        <form onInput={handleInput}>
+          <SelectFixture multiple />
+        </form>,
+      );
+
+      await user.click(screen.getByTestId('trigger'));
+      await flushMicrotasks();
+
+      await user.click(screen.getByRole('option', { name: 'a' }));
+      await flushMicrotasks();
+
+      expect(handleInput).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fire form onChange on form reset', async () => {
+      const handleChange = vi.fn();
+
+      const { user } = await render(
+        <form onChange={handleChange}>
+          <SelectFixture />
+          <button type="reset">Reset</button>
+        </form>,
+      );
+
+      // Select a value first
+      await user.click(screen.getByTestId('trigger'));
+      await flushMicrotasks();
+
+      await user.click(screen.getByRole('option', { name: 'b' }));
+      await flushMicrotasks();
+
+      const changeCountAfterSelect = handleChange.mock.calls.length;
+
+      // Reset the form - should not fire onChange
+      await user.click(screen.getByRole('button', { name: 'Reset' }));
+      await flushMicrotasks();
+
+      expect(handleChange.mock.calls.length).toBe(changeCountAfterSelect);
+    });
+  });
+
   describe('prop: highlightItemOnHover', () => {
     it('highlights an item on mouse move by default', async () => {
       const { user } = await render(

@@ -295,12 +295,51 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   React.useImperativeHandle(actionsRef, () => ({ unmount: handleUnmount }), [handleUnmount]);
 
+  const hiddenInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Guards against re-entering the autofill handler when we programmatically dispatch
+  // synthetic input/change events from setValue.
+  const dispatchingEventsRef = React.useRef(false);
+
   const setValue = useStableCallback(
     (nextValue: any, eventDetails: SelectRoot.ChangeEventDetails) => {
       onValueChange?.(nextValue, eventDetails);
 
       if (eventDetails.isCanceled) {
         return;
+      }
+
+      // When the user explicitly picks an item, dispatch native input/change events so
+      // that React synthetic handlers on ancestor <form> elements fire, matching the
+      // behavior of a native <select> element.
+      if (eventDetails.reason === REASONS.itemPress) {
+        const input = hiddenInputRef.current;
+        if (input) {
+          // Compute the serialized value for the new selection.
+          const nextSerialized =
+            multiple && Array.isArray(nextValue) && nextValue.length === 0
+              ? ''
+              : stringifyAsValue(nextValue, itemToStringValue);
+
+          // Use the native value setter (bypassing React's own setter) to update the DOM
+          // before React re-renders. This creates a transient discrepancy between the DOM
+          // value (nextSerialized) and React's internally-tracked value (the previous
+          // serializedValue) that React's ChangeEventPlugin detects, enabling it to fire a
+          // synthetic onChange for any ancestor element (e.g. <form onChange>).
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            'value',
+          )?.set;
+
+          if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(input, nextSerialized);
+          }
+
+          dispatchingEventsRef.current = true;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          dispatchingEventsRef.current = false;
+        }
       }
 
       setValueUnwrapped(nextValue);
@@ -485,7 +524,6 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   const ref = useMergedRefs(inputRef, validation.inputRef);
 
-  const hiddenInputRef = React.useRef<HTMLInputElement | null>(null);
   const mergedHiddenInputRef = useMergedRefs(ref, hiddenInputRef);
 
   // Capture the default value once at mount time for form reset support.
@@ -555,6 +593,11 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
             onChange(event: React.ChangeEvent<HTMLInputElement>) {
               // Workaround for https://github.com/facebook/react/issues/9023
               if (event.nativeEvent.defaultPrevented) {
+                return;
+              }
+
+              // Skip synthetic dispatches made by setValue to avoid a feedback loop.
+              if (dispatchingEventsRef.current) {
                 return;
               }
 
