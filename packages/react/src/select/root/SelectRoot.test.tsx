@@ -4167,9 +4167,27 @@ describe('<Select.Root />', () => {
   });
 
   describe('form event bubbling', () => {
-    function SelectFixture({ multiple }: { multiple?: boolean }) {
+    function SingleSelectFixture() {
       return (
-        <Select.Root name="select" multiple={multiple as any}>
+        <Select.Root name="select">
+          <Select.Trigger data-testid="trigger">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner>
+              <Select.Popup>
+                <Select.Item value="a">a</Select.Item>
+                <Select.Item value="b">b</Select.Item>
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>
+      );
+    }
+
+    function MultipleSelectFixture() {
+      return (
+        <Select.Root name="select" multiple>
           <Select.Trigger data-testid="trigger">
             <Select.Value />
           </Select.Trigger>
@@ -4189,7 +4207,7 @@ describe('<Select.Root />', () => {
       const handleChange = vi.fn();
       const { user } = await render(
         <form onChange={handleChange}>
-          <SelectFixture />
+          <SingleSelectFixture />
         </form>,
       );
 
@@ -4206,7 +4224,7 @@ describe('<Select.Root />', () => {
       const handleInput = vi.fn();
       const { user } = await render(
         <form onInput={handleInput}>
-          <SelectFixture />
+          <SingleSelectFixture />
         </form>,
       );
 
@@ -4223,7 +4241,7 @@ describe('<Select.Root />', () => {
       const handleChange = vi.fn();
       const { user } = await render(
         <form onChange={handleChange}>
-          <SelectFixture multiple />
+          <MultipleSelectFixture />
         </form>,
       );
 
@@ -4240,7 +4258,7 @@ describe('<Select.Root />', () => {
       const handleInput = vi.fn();
       const { user } = await render(
         <form onInput={handleInput}>
-          <SelectFixture multiple />
+          <MultipleSelectFixture />
         </form>,
       );
 
@@ -4258,7 +4276,7 @@ describe('<Select.Root />', () => {
 
       const { user } = await render(
         <form onChange={handleChange}>
-          <SelectFixture />
+          <SingleSelectFixture />
           <button type="reset">Reset</button>
         </form>,
       );

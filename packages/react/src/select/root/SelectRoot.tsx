@@ -39,6 +39,13 @@ import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
 import { getMaxScrollOffset, normalizeScrollOffset } from '../../utils/scrollEdges';
 import { mergeProps } from '../../merge-props';
 
+// Cached outside the component to avoid repeated descriptor lookups on every item selection.
+// Only resolved in browser environments.
+const nativeInputValueSetter =
+  typeof window !== 'undefined'
+    ? Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+    : undefined;
+
 /**
  * Groups all parts of the select.
  * Doesn't render its own HTML element.
@@ -326,11 +333,6 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
           // value (nextSerialized) and React's internally-tracked value (the previous
           // serializedValue) that React's ChangeEventPlugin detects, enabling it to fire a
           // synthetic onChange for any ancestor element (e.g. <form onChange>).
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLInputElement.prototype,
-            'value',
-          )?.set;
-
           if (nativeInputValueSetter) {
             nativeInputValueSetter.call(input, nextSerialized);
           }
