@@ -107,6 +107,18 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
       nextIndexRef.current = sortedMap.size;
     }
 
+    // Always populate elementsRef entries from the sorted map. In React
+    // StrictMode, the cleanup effect wipes elementsRef.current but ref
+    // callbacks don't re-fire (the DOM is not unmounted), leaving the array
+    // with the correct length but empty slots. Writing from the map here
+    // recovers those references. This is a no-op in the normal case because
+    // the ref callbacks already wrote the same nodes.
+    sortedMap.forEach((metadata, node) => {
+      if (metadata.index != null) {
+        elementsRef.current[metadata.index] = node as HTMLElement;
+      }
+    });
+
     onMapChange(sortedMap);
   }, [onMapChange, sortedMap, elementsRef, labelsRef, mapTick]);
 

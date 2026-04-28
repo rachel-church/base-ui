@@ -53,6 +53,44 @@ describe('<Select.Item />', () => {
     expect(positioner).not.toBeVisible();
   });
 
+  it('should select the item and close popup when clicked inside <React.StrictMode>', async () => {
+    // Regression: StrictMode's double-invoked cleanup wipes the
+    // CompositeList `elementsRef`, so `listRef.current[0]` is undefined when
+    // SelectPopup tries to set the initial `activeIndex`. The item never
+    // becomes highlighted and `SelectItem.onClick` bails on its
+    // `!highlighted` guard, making mouse selection a silent no-op.
+    ignoreActWarnings();
+    await render(
+      <Select.Root>
+        <Select.Trigger data-testid="trigger">
+          <Select.Value data-testid="value" />
+        </Select.Trigger>
+        <Select.Positioner data-testid="positioner">
+          <Select.Item value="one">one</Select.Item>
+        </Select.Positioner>
+      </Select.Root>,
+      { strict: true },
+    );
+
+    const value = screen.getByTestId('value');
+    const trigger = screen.getByTestId('trigger');
+    const positioner = screen.getByTestId('positioner');
+
+    expect(value.textContent).toBe('');
+
+    fireEvent.click(trigger);
+
+    await flushMicrotasks();
+
+    fireEvent.click(screen.getByText('one'));
+
+    await flushMicrotasks();
+
+    expect(value.textContent).toBe('one');
+
+    expect(positioner).not.toBeVisible();
+  });
+
   it.skipIf(!isJSDOM)('navigating with keyboard should focus item', async () => {
     const { user } = await render(
       <Select.Root>
