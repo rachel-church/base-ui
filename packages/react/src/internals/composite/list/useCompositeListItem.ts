@@ -52,22 +52,28 @@ export function useCompositeListItem<Metadata>(
 
   const componentRef = React.useRef<Element | null>(null);
 
+  const syncLabel = React.useCallback(
+    (node: HTMLElement, i: number) => {
+      if (labelsRef) {
+        const isLabelDefined = label !== undefined;
+        labelsRef.current[i] = isLabelDefined
+          ? label
+          : (textRef?.current?.textContent ?? node.textContent);
+      }
+    },
+    [labelsRef, label, textRef],
+  );
+
   const ref = React.useCallback(
     (node: HTMLElement | null) => {
       componentRef.current = node;
 
       if (index !== -1 && node !== null) {
         elementsRef.current[index] = node;
-
-        if (labelsRef) {
-          const isLabelDefined = label !== undefined;
-          labelsRef.current[index] = isLabelDefined
-            ? label
-            : (textRef?.current?.textContent ?? node.textContent);
-        }
+        syncLabel(node, index);
       }
     },
-    [index, elementsRef, labelsRef, label, textRef],
+    [index, elementsRef, syncLabel],
   );
 
   useIsoLayoutEffect(() => {
@@ -91,13 +97,21 @@ export function useCompositeListItem<Metadata>(
     }
 
     return subscribeMapChange((map) => {
-      const i = componentRef.current ? map.get(componentRef.current)?.index : null;
+      const node = componentRef.current;
+      const i = node ? map.get(node)?.index : null;
 
       if (i != null) {
         setIndex(i);
+
+        // Re-sync labelsRef unconditionally. In React StrictMode, the cleanup
+        // effect in CompositeList wipes labelsRef.current, but ref callbacks
+        // don't re-fire (the DOM is not unmounted), so labels are lost. Writing
+        // them here recovers the values on every map change. This is a no-op in
+        // the normal case because the ref callback already wrote the same label.
+        syncLabel(node as HTMLElement, i);
       }
     });
-  }, [externalIndex, subscribeMapChange, setIndex]);
+  }, [externalIndex, subscribeMapChange, setIndex, syncLabel]);
 
   return React.useMemo(
     () => ({
