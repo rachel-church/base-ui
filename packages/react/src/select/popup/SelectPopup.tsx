@@ -27,7 +27,11 @@ import { clearStyles, LIST_FUNCTIONAL_STYLES } from './utils';
 import { createChangeEventDetails } from '../../internals/createBaseUIEventDetails';
 import { REASONS } from '../../internals/reasons';
 import { useToolbarRootContext } from '../../toolbar/root/ToolbarRootContext';
-import { COMPOSITE_KEYS } from '../../internals/composite/composite';
+import {
+  COMPOSITE_KEYS,
+  getMaxListIndex,
+  getMinListIndex,
+} from '../../internals/composite/composite';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { clamp } from '../../internals/clamp';
 import { getMaxScrollOffset, SCROLL_EDGE_TOLERANCE_PX } from '../../utils/scrollEdges';
@@ -469,6 +473,27 @@ export const SelectPopup = React.forwardRef(function SelectPopup(
       keyboardActiveRef.current = true;
       if (insideToolbar && COMPOSITE_KEYS.has(event.key)) {
         event.stopPropagation();
+      }
+
+      if (event.key === 'PageDown' || event.key === 'PageUp') {
+        event.preventDefault();
+        const activeIdx = store.state.activeIndex;
+        if (activeIdx === null) {
+          return;
+        }
+
+        const maxIndex = getMaxListIndex(listRef);
+        const minIndex = getMinListIndex(listRef);
+
+        if (maxIndex === -1) {
+          return;
+        }
+
+        if (event.key === 'PageDown') {
+          store.set('activeIndex', Math.min(activeIdx + 10, maxIndex));
+        } else {
+          store.set('activeIndex', Math.max(activeIdx - 10, minIndex));
+        }
       }
     },
     onMouseMove() {
